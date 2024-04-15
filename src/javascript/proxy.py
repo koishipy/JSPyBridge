@@ -204,7 +204,7 @@ class Proxy:
         self._resolved = {}
         self._Keys: Optional[List[str]] = None
 
-    def _call(self, method: str, methodType: str, val: Any):
+    def _call(self, method: str, methodType: str, val: Any) -> Any:
         this = self
 
         debug("MT", method, methodType, val)  # noqa
@@ -223,7 +223,7 @@ class Proxy:
         else:
             return val
 
-    def __call__(self, *args, timeout: Optional[float] = 10, forceRefs: bool = False):
+    def __call__(self, *args, timeout: Optional[float] = 10, forceRefs: bool = False) -> Any:
         mT, v = (
             self._exe.initProp(self._pffid, self._pname, args)
             if self._es6
@@ -235,14 +235,14 @@ class Proxy:
             return Proxy(self._exe, v)
         return self._call(self._pname, mT, v)
 
-    def __getattr__(self, attr: str):
+    def __getattr__(self, attr: str) -> Any:
         # Special handling for new keyword for ES5 classes
         if attr == "new":
             return self._call(self._pname if self._pffid == self.ffid else "", "class", self._pffid)
         methodType, val = self._exe.getProp(self._pffid, attr)
         return self._call(attr, methodType, val)
 
-    def __getitem__(self, attr):
+    def __getitem__(self, attr) -> Any:
         methodType, val = self._exe.getProp(self.ffid, attr)
         return self._call(attr, methodType, val)
 

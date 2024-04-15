@@ -4,7 +4,7 @@ import inspect
 import os
 import sys
 import threading
-from typing import Optional
+from typing import Optional, Union, Dict
 
 from . import config, proxy, events
 from . import json_patch  # noqa: F401
@@ -41,7 +41,7 @@ def terminate():
         config.event_loop.stop()
 
 
-def require(name: str, version: Optional[str] = None):
+def require(name: str, version: Optional[str] = None) -> Union[proxy.Proxy, Dict[str, proxy.Proxy]]:
     if not config.global_jsi:
         raise RuntimeError("JSI not initialized. Please call `init()` before using `require`.")
     calling_dir: Optional[str] = None
