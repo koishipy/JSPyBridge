@@ -126,7 +126,26 @@ class PyBridge {
   // We also need to keep track of the Python objects so we can GC them.
   async call (ffid, stack, args, kwargs, set, timeout) {
     const r = nextReq()
-    const req = { r, c: 'pyi', action: set ? 'setval' : 'pcall', ffid: ffid, key: stack, val: [args, kwargs] }
+    const req = { r, c: 'pyi', action: set ? 'setval' : 'pcall', ffid: ffid, key: stack} //, val: [args, kwargs] }
+    console.debug(kwargs)
+    let newArgs = []
+    if (args.length) {
+      newArgs = args.map(arg => {
+          if (arg && !arg.r) {
+          if (arg.ffid) return { ffid: arg.ffid }
+          if (
+            typeof arg === 'function' ||
+            (typeof arg === 'object' && (arg.constructor.name !== 'Object' && arg.constructor.name !== 'Array'))
+          ) {
+            const ffid = ++this.jsi.ffid
+            this.jsi.m[ffid] = arg
+            return { ffid }
+          }
+        }
+        return arg
+      })
+    }
+    req.val = [newArgs, kwargs]
     const payload = JSON.stringify(req, (k, v) => {
       if (!k) return v
       if (v && !v.r) {

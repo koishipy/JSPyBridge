@@ -1,0 +1,8 @@
+{
+    "esversion": 11,
+    "strict"   : false,
+    "asi"      : true,
+    "evil"     : false,
+    "browser"  : true,
+    "devel"    : true
+}
