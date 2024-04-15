@@ -4,3 +4,6 @@ __*__
 src/**/package.json
 package-lock.json
 *.egg-info
+.idea/
+.pdm-python
+dist/

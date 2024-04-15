@@ -1,7 +1,10 @@
-import time, threading, json, sys
-from . import connection, config, pyi
+import sys
+import threading
+import time
 from queue import Queue
 from weakref import WeakValueDictionary
+
+from . import connection, config, pyi
 
 
 class TaskState:
@@ -9,7 +12,7 @@ class TaskState:
         self.stopping = False
         self.sleep = self.wait
 
-    def wait(self, sec):
+    def wait(self, sec: float):
         stopTime = time.time() + sec
         while time.time() < stopTime and not self.stopping:
             time.sleep(0.2)

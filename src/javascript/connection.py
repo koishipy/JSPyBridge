@@ -1,5 +1,14 @@
-import threading, subprocess, json, time, signal
-import atexit, os, sys
+import atexit
+import json
+import os
+import subprocess
+import sys
+import threading
+import time
+from typing import IO, Sequence, Any, Optional
+
+from loguru import logger
+
 from . import config
 from .config import debug
 
@@ -11,7 +20,7 @@ NODE_BIN = os.environ.get('NODE_BIN') or (getattr(os.environ, "NODE_BIN") if has
 
 def is_notebook():
     try:
-        from IPython import get_ipython
+        from IPython import get_ipython  # type: ignore
     except Exception:
         return False
     if "COLAB_GPU" in os.environ:
@@ -19,9 +28,9 @@ def is_notebook():
 
     shell = get_ipython().__class__.__name__
     if shell == "ZMQInteractiveShell":
-        return True # Jupyter
+        return True  # Jupyter
     elif shell == "TerminalInteractiveShell":
-        return True # IPython
+        return True  # IPython
 
 
 # Modified stdout
@@ -58,10 +67,12 @@ else:
 # ^^ Looks like custom FDs don't work on Windows, so let's keep using STDIO.
 
 dn = os.path.dirname(__file__)
-proc = com_thread = stdout_thread = None
+proc: Optional[subprocess.Popen] = None
+com_thread: Optional[threading.Thread] = None
+stdout_thread: Optional[threading.Thread] = None
 
 
-def readComItem(stream):
+def readComItem(stream: IO[bytes]):
     
     line = stream.readline()
     if not line:
@@ -91,21 +102,22 @@ def readComItem(stream):
     
     line = line.decode("utf-8")
     if not line.startswith('{"r"'):
-        print("[JSE]", line)
+        logger.info("[JSE]", line)
         return
     try:
         d = json.loads(line)
         debug("[js -> py]", int(time.time() * 1000), line)
         return d
     except ValueError as e:
-        print("[JSE]", line)
+        logger.warning("[JSE]", line)
 
 
 sendQ = []
 
+
 # Write a message to a remote socket, in this case it's standard input
 # but it could be a websocket (slower) or other generic pipe.
-def writeAll(objs):
+def writeAll(objs: Sequence[Any]):
     for obj in objs:
         if type(obj) == str:
             j = obj + "\n"
@@ -115,15 +127,19 @@ def writeAll(objs):
         if not proc or proc.poll() is not None:
             sendQ.append(j.encode())
             continue
+        if not proc.stdin:
+            break
         try:
             proc.stdin.write(j.encode())
             proc.stdin.flush()
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to write to JS process", e)
             stop()
             break
 
 
 com_items = []
+
 
 # Reads from the socket, in this case it's standard error. Returns an array
 # of parsed responses from the server.
@@ -143,7 +159,7 @@ def com_io():
                 stdin=subprocess.PIPE,
                 stdout=stdout,
                 stderr=subprocess.PIPE,
-                creationflags = subprocess.CREATE_NO_WINDOW
+                creationflags=subprocess.CREATE_NO_WINDOW
             )
         else:
             proc = subprocess.Popen(
@@ -155,11 +171,15 @@ def com_io():
 
     except Exception as e:
         print(
-            "--====--\t--====--\n\nBridge failed to spawn JS process!\n\nDo you have Node.js 16 or newer installed? Get it at https://nodejs.org/\n\n--====--\t--====--"
+            "--====--\t--====--\n\n"
+            "Bridge failed to spawn JS process!\n\n"
+            "Do you have Node.js 16 or newer installed? Get it at https://nodejs.org/\n\n"
+            "--====--\t--====--"
         )
         stop()
         raise e
-
+    if not proc.stdin:
+        raise Exception("Failed to spawn JS process")
     for send in sendQ:
         proc.stdin.write(send)
     sendQ.clear()
@@ -171,17 +191,19 @@ def com_io():
         stdout_thread.start()
 
     while proc.poll() is None:
-        item = readComItem(proc.stderr)
+        item = readComItem(proc.stderr)  # type: ignore
         if item:
             com_items.append(item)
-            if config.event_loop != None:
+            if config.event_loop is not None:
                 config.event_loop.queue.put("stdin")
 
 
 # FIXME untested
 def stdout_read():
+    if not proc:
+        raise RuntimeError("No process to read from")
     while proc.poll() is None:
-        print(proc.stdout.readline().decode("utf-8"))
+        print(proc.stdout.readline().decode("utf-8"))  # type: ignore
 
 
 def start():
@@ -192,13 +214,14 @@ def start():
 
 def stop():
     try:
-        proc.terminate()
+        proc.terminate()  # type: ignore
     except Exception:
         pass
     config.event_loop = None
     config.event_thread = None
     config.executor = None
     # The "root" interface to JavaScript with FFID 0
+
     class Null:
         def __getattr__(self, *args, **kwargs):
             raise Exception(
@@ -211,6 +234,8 @@ def stop():
 
 
 def is_alive():
+    if not proc:
+        return False
     return proc.poll() is None
 
 

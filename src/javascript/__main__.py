@@ -1,4 +1,7 @@
-import os, sys, argparse, shutil
+import argparse
+import os
+import shutil
+import sys
 
 PACKAGEJSON = '{\n\t"name": "js-modules",\n\t"description": "This folder holds the installed JS deps",\n\t"dependencies": {}\n}'
 
@@ -44,6 +47,6 @@ elif args.uninstall:
     if os.path.exists("package.json"):
         os.system(f"npm uninstall {args.uninstall}")
     else:
-        printf("No packages are currently installed")
+        print("No packages are currently installed")
 else:
     parser.print_help(sys.stderr)

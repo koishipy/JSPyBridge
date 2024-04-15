@@ -1,28 +1,36 @@
 # THe Python Interface for JavaScript
 
-import inspect, importlib, traceback
-import os, sys, json, types
-import socket
-from .proxy import Proxy
-from .errors import JavaScriptError, getErrorMessage
+import importlib
+import inspect
+import json
+import sys
+import traceback
+from importlib import util as importlib_util
+from typing import Any, Dict
 from weakref import WeakValueDictionary
 
+from .proxy import Proxy
 
-def python(method):
+
+def python(method: str):
     return importlib.import_module(method, package=None)
 
 
-def fileImport(moduleName, absolutePath, folderPath):
+def fileImport(moduleName: str, absolutePath: str, folderPath: str):
     if folderPath not in sys.path:
         sys.path.append(folderPath)
-    spec = importlib.util.spec_from_file_location(moduleName, absolutePath)
-    foo = importlib.util.module_from_spec(spec)
+    spec = importlib_util.spec_from_file_location(moduleName, absolutePath)
+    if spec is None:
+        raise ImportError(f"Can't import {moduleName} from {absolutePath}")
+    foo = importlib_util.module_from_spec(spec)
+    if spec.loader is None:
+        raise ImportError(f"Can't import {moduleName} from {absolutePath}")
     spec.loader.exec_module(foo)
     return foo
 
 
 class Iterate:
-    def __init__(self, v):
+    def __init__(self, v: Any):
         self.what = v
 
         # If we have a normal iterator, we need to make it a generator
@@ -33,7 +41,7 @@ class Iterate:
 
         def next_iter():
             try:
-                return next(it)
+                return next(it)  # type: ignore
             except Exception:
                 return "$$STOPITER"
 
@@ -52,7 +60,7 @@ fix_key = lambda key: key.replace("~~", "") if type(key) is str else key
 
 
 class PyInterface:
-    m = {0: {"python": python, "fileImport": fileImport, "Iterate": Iterate}}
+    m: Dict[int, Any] = {0: {"python": python, "fileImport": fileImport, "Iterate": Iterate}}  # type: ignore
     # Things added to this dict are auto GC'ed
     weakmap = WeakValueDictionary()
     cur_ffid = 10000
@@ -68,12 +76,12 @@ class PyInterface:
         )
         self.executor = exe
 
-    def assign_ffid(self, what):
+    def assign_ffid(self, what: Any):
         self.cur_ffid += 1
         self.m[self.cur_ffid] = what
         return self.cur_ffid
 
-    def length(self, r, ffid, keys, args):
+    def length(self, r, ffid: int, keys, args):
         v = self.m[ffid]
         for key in keys:
             if type(v) in (dict, tuple, list):

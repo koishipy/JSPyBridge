@@ -1,42 +1,51 @@
-import time, threading, json, sys, os, traceback
-from . import config, json_patch
+import json
+from typing import TYPE_CHECKING, Any, Optional, Sequence, List
+
+from . import config
 from .errors import JavaScriptError
 
+if TYPE_CHECKING:
+    from .events import EventLoop
+
 debug = config.debug
+
 
 # This is the Executor, something that sits in the middle of the Bridge and is the interface for
 # Python to JavaScript. This is also used by the bridge to call Python from Node.js.
 class Executor:
-    def __init__(self, loop):
+    ctr: int
+    expectReply: bool
+
+    def __init__(self, loop: "EventLoop"):
         self.loop = loop
         loop.pyi.executor = self
         self.queue = loop.queue_request
         self.i = 0
         self.bridge = self.loop.pyi
 
-    def ipc(self, action, ffid, attr, args=None):
+    def ipc(self, action: str, ffid: int, attr: Any, args: Any = None):
         # NOTE The actions here translate to function calls in bridge.js
         self.i += 1
         r = self.i  # unique request ts, acts as ID for response
-        l = None  # the lock
+        # l = None  # the lock
         if action == "get":  # return obj[prop]
-            l = self.queue(r, {"r": r, "action": "get", "ffid": ffid, "key": attr})
+            _lock = self.queue(r, {"r": r, "action": "get", "ffid": ffid, "key": attr})
         elif action == "init":  # return new obj[prop]
-            l = self.queue(r, {"r": r, "action": "init", "ffid": ffid, "key": attr, "args": args})
+            _lock = self.queue(r, {"r": r, "action": "init", "ffid": ffid, "key": attr, "args": args})
         elif action == "inspect":  # return require('util').inspect(obj[prop])
-            l = self.queue(r, {"r": r, "action": "inspect", "ffid": ffid, "key": attr})
+            _lock = self.queue(r, {"r": r, "action": "inspect", "ffid": ffid, "key": attr})
         elif action == "serialize":  # return JSON.stringify(obj[prop])
-            l = self.queue(r, {"r": r, "action": "serialize", "ffid": ffid})
+            _lock = self.queue(r, {"r": r, "action": "serialize", "ffid": ffid})
         elif action == "blob":
-            l = self.queue(r, {"r": r, "action": "blob", "ffid": ffid})
+            _lock = self.queue(r, {"r": r, "action": "blob", "ffid": ffid})
         elif action == "set":
-            l = self.queue(r, {"r": r, "action": "set", "ffid": ffid, "key": attr, "args": args})
+            _lock = self.queue(r, {"r": r, "action": "set", "ffid": ffid, "key": attr, "args": args})
         elif action == "keys":
-            l = self.queue(r, {"r": r, "action": "keys", "ffid": ffid})
+            _lock = self.queue(r, {"r": r, "action": "keys", "ffid": ffid})
         else:
-            assert False, f"Unhandled action '{action}'"
+            raise RuntimeError(f"Unhandled action '{action}'")
 
-        if not l.wait(10):
+        if not _lock.wait(10):
             if not config.event_thread:
                 print(config.dead)
             print("Timed out", action, ffid, attr, repr(config.event_thread))
@@ -50,7 +59,8 @@ class Executor:
 
     # forceRefs=True means that the non-primitives in the second parameter will not be recursively
     # parsed for references. It's specifcally for eval_js.
-    def pcall(self, ffid, action, attr, args, *, timeout=1000, forceRefs=False):
+    def pcall(self, ffid: int, action: str, attr: Any, args: Sequence[Any], *, timeout: Optional[float] = 1000,
+              forceRefs: bool = False):
         """
         This function does a two-part call to JavaScript. First, a preliminary request is made to JS
         with the function ID, attribute and arguments that Python would like to call. For each of the
@@ -90,11 +100,10 @@ class Executor:
             for k in _locals:
                 v = _locals[k]
                 if (
-                    (type(v) is int)
-                    or (type(v) is float)
-                    or (v is None)
-                    or (v is True)
-                    or (v is False)
+                        (isinstance(v, (int, float)))
+                        or (v is None)
+                        or (v is True)
+                        or (v is False)
                 ):
                     flocals[k] = v
                 else:
@@ -106,7 +115,7 @@ class Executor:
             # a bit of a perf hack, but we need to add in the counter after we've already serialized ...
             payload = payload[:-1] + f',"p":{self.ctr}}}'
 
-        l = self.loop.queue_request(callRespId, payload)
+        lock = self.loop.queue_request(callRespId, payload)
         # We only have to wait for a FFID assignment response if
         # we actually sent any non-primitives, otherwise skip
         if self.expectReply:
@@ -117,7 +126,7 @@ class Executor:
             del self.loop.responses[ffidRespId]
 
             if "error" in pre:
-                raise JavaScriptError(attr, res["error"])
+                raise JavaScriptError(attr, pre["error"])
 
             for requestId in pre["val"]:
                 ffid = pre["val"][requestId]
@@ -131,7 +140,7 @@ class Executor:
 
             barrier.wait()
 
-        if not l.wait(timeout):
+        if not lock.wait(timeout):
             if not config.event_thread:
                 print(config.dead)
             raise Exception(
@@ -146,56 +155,59 @@ class Executor:
             raise JavaScriptError(attr, res["error"])
         return res["key"], res["val"]
 
-    def getProp(self, ffid, method):
+    def getProp(self, ffid: int, method: str):
         resp = self.ipc("get", ffid, method)
         return resp["key"], resp["val"]
 
-    def setProp(self, ffid, method, val):
+    def setProp(self, ffid: int, method: str, val: Any):
         self.pcall(ffid, "set", method, [val])
         return True
 
-    def callProp(self, ffid, method, args, *, timeout=None, forceRefs=False):
+    def callProp(self, ffid: int, method: str, args: Sequence[Any], *, timeout: Optional[float] = None,
+                 forceRefs: bool = False):
         resp = self.pcall(ffid, "call", method, args, timeout=timeout, forceRefs=forceRefs)
         return resp
 
-    def initProp(self, ffid, method, args):
+    def initProp(self, ffid: int, method: str, args: Sequence[Any]):
         resp = self.pcall(ffid, "init", method, args)
         return resp
 
-    def inspect(self, ffid, mode):
+    def inspect(self, ffid: int, mode: Any):
         resp = self.ipc("inspect", ffid, mode)
         return resp["val"]
 
-    def keys(self, ffid):
+    def keys(self, ffid: int):
         return self.ipc("keys", ffid, "")["keys"]
 
-    def free(self, ffid):
+    def free(self, ffid: int):
         self.loop.freeable.append(ffid)
 
-    def get(self, ffid):
+    def get(self, ffid: int):
         return self.bridge.m[ffid]
 
 
 INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname", "_es6", "_resolved", "_Keys"]
 
+
 # "Proxy" classes get individually instanciated for every thread and JS object
 # that exists. It interacts with an Executor to communicate.
-class Proxy(object):
-    def __init__(self, exe, ffid, prop_ffid=None, prop_name="", es6=False):
+class Proxy:
+    def __init__(self, exe: Executor, ffid: int, prop_ffid: Optional[int] = None, prop_name: str = "",
+                 es6: bool = False):
         self.ffid = ffid
         self._exe = exe
         self._ix = 0
         #
-        self._pffid = prop_ffid if (prop_ffid != None) else ffid
+        self._pffid = prop_ffid if prop_ffid is not None else ffid
         self._pname = prop_name
         self._es6 = es6
         self._resolved = {}
-        self._Keys = None
+        self._Keys: Optional[List[str]] = None
 
-    def _call(self, method, methodType, val):
+    def _call(self, method: str, methodType: str, val: Any):
         this = self
 
-        debug("MT", method, methodType, val)
+        debug("MT", method, methodType, val)  # noqa
         if methodType == "fn":
             return Proxy(self._exe, val, self.ffid, method)
         if methodType == "class":
@@ -211,7 +223,7 @@ class Proxy(object):
         else:
             return val
 
-    def __call__(self, *args, timeout=10, forceRefs=False):
+    def __call__(self, *args, timeout: Optional[float] = 10, forceRefs: bool = False):
         mT, v = (
             self._exe.initProp(self._pffid, self._pname, args)
             if self._es6
@@ -223,7 +235,7 @@ class Proxy(object):
             return Proxy(self._exe, v)
         return self._call(self._pname, mT, v)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str):
         # Special handling for new keyword for ES5 classes
         if attr == "new":
             return self._call(self._pname if self._pffid == self.ffid else "", "class", self._pffid)
@@ -234,13 +246,13 @@ class Proxy(object):
         methodType, val = self._exe.getProp(self.ffid, attr)
         return self._call(attr, methodType, val)
 
-    def __iter__(self):
+    def __iter__(self: "IterableProxy"):  # type: ignore
         self._ix = 0
-        if self.length == None:
+        if self.length is None:
             self._Keys = self._exe.keys(self.ffid)
         return self
 
-    def __next__(self):
+    def __next__(self: "IterableProxy"):  # type: ignore
         if self._Keys:
             if self._ix < len(self._Keys):
                 result = self._Keys[self._ix]
@@ -255,26 +267,26 @@ class Proxy(object):
         else:
             raise StopIteration
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any):
         if name in INTERNAL_VARS:
             object.__setattr__(self, name, value)
         else:
-            return self._exe.setProp(self.ffid, name, value)
+            self._exe.setProp(self.ffid, name, value)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: Any):
         return self._exe.setProp(self.ffid, name, value)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str):
         return True if self[key] is not None else False
 
     def valueOf(self):
         ser = self._exe.ipc("serialize", self.ffid, "")
         return ser["val"]
-    
+
     def blobValueOf(self):
         blob = self._exe.ipc("blob", self.ffid, "")
         return blob["blob"]
-    
+
     def __str__(self):
         return self._exe.inspect(self.ffid, "str")
 
@@ -286,3 +298,8 @@ class Proxy(object):
 
     def __del__(self):
         self._exe.free(self.ffid)
+
+
+# type narrow
+class IterableProxy(Proxy):
+    length: int

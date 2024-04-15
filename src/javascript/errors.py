@@ -1,4 +1,6 @@
-import re, sys, traceback
+import re
+import sys
+import traceback
 
 
 class JavaScriptError(Exception):
@@ -208,8 +210,8 @@ def getErrorMessage(failed_call, jsStackTrace, pyStacktrace):
 # Fix for IPython as it blocks the exception hook
 # https://stackoverflow.com/a/28758396/11173996
 try:
-    __IPYTHON__
-    import IPython.core.interactiveshell
+    __IPYTHON__  # noqa  # type: ignore
+    import IPython.core.interactiveshell  # type: ignore
 
     oldLogger = IPython.core.interactiveshell.InteractiveShell.showtraceback
 
