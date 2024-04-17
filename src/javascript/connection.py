@@ -102,14 +102,14 @@ def readComItem(stream: IO[bytes]):
     
     line = line.decode("utf-8")
     if not line.startswith('{"r"'):
-        logger.info("[JSE]", line)
+        print("[JSE]", line)
         return
     try:
         d = json.loads(line)
-        debug("[js -> py]", int(time.time() * 1000), line)
+        debug(f"[js -> py] {int(time.time() * 1000)} {line}")
         return d
     except ValueError as e:
-        logger.warning("[JSE]", line)
+        print("[JSE]", line)
 
 
 sendQ = []
@@ -123,7 +123,7 @@ def writeAll(objs: Sequence[Any]):
             j = obj + "\n"
         else:
             j = json.dumps(obj) + "\n"
-        debug("[py -> js]", int(time.time() * 1000), j)
+        debug(f"[py -> js] {int(time.time() * 1000)} {j}")
         if not proc or proc.poll() is not None:
             sendQ.append(j.encode())
             continue
@@ -133,7 +133,7 @@ def writeAll(objs: Sequence[Any]):
             proc.stdin.write(j.encode())
             proc.stdin.flush()
         except Exception as e:
-            logger.error("Failed to write to JS process", e)
+            logger.error(f"Failed to write to JS process: {e!r}")
             stop()
             break
 

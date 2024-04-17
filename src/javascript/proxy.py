@@ -207,7 +207,7 @@ class Proxy:
     def _call(self, method: str, methodType: str, val: Any) -> Any:
         this = self
 
-        debug("MT", method, methodType, val)  # noqa
+        debug(f"MT {method} {methodType} {val!r}")
         if methodType == "fn":
             return Proxy(self._exe, val, self.ffid, method)
         if methodType == "class":

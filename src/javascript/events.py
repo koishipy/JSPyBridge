@@ -143,7 +143,7 @@ class EventLoop:
 
     def on_exit(self):
         if len(self.callbacks):
-            config.debug("cannot exit because active callback", self.callbacks)
+            config.debug(f"cannot exit because active callback: {self.callbacks}")
         while len(self.callbacks) and connection.is_alive():
             time.sleep(0.4)
         time.sleep(0.4)  # Allow final IO
