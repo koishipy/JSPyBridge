@@ -122,28 +122,46 @@ class PyBridge {
     }
   }
 
+  _convert(arg) {
+    try {
+      if (arg && !arg.r) {
+        if (arg.ffid) return {ffid: arg.ffid}
+        if (typeof arg === 'function') {
+            const ffid = ++this.jsi.ffid
+            this.jsi.m[ffid] = arg
+            return {ffid}
+        }
+        if (typeof arg === 'object') {
+          if (arg.constructor.name !== 'Object' && arg.constructor.name !== 'Array') {
+            //console.log('arg', arg)
+            const ffid = ++this.jsi.ffid
+            this.jsi.m[ffid] = arg
+            return {ffid}
+          }
+          if (arg.constructor.name === 'Array') {
+            return arg.map((item) => this._convert(item))
+          }
+          let newObj = {}
+          for (const key in arg) {
+              newObj[key] = this._convert(arg[key])
+          }
+          //console.log('newObj', newObj)
+          return newObj
+        }
+      }
+    }
+    catch (e) {}
+    return arg
+  }
+
   // This does a function call to Python. We assign the FFIDs, so we can assign them and send the call to Python.
   // We also need to keep track of the Python objects so we can GC them.
   async call (ffid, stack, args, kwargs, set, timeout) {
     const r = nextReq()
     const req = { r, c: 'pyi', action: set ? 'setval' : 'pcall', ffid: ffid, key: stack} //, val: [args, kwargs] }
-    console.debug(kwargs)
     let newArgs = []
     if (args.length) {
-      newArgs = args.map(arg => {
-          if (arg && !arg.r) {
-          if (arg.ffid) return { ffid: arg.ffid }
-          if (
-            typeof arg === 'function' ||
-            (typeof arg === 'object' && (arg.constructor.name !== 'Object' && arg.constructor.name !== 'Array'))
-          ) {
-            const ffid = ++this.jsi.ffid
-            this.jsi.m[ffid] = arg
-            return { ffid }
-          }
-        }
-        return arg
-      })
+      newArgs = args.map((item) => this._convert(item))
     }
     req.val = [newArgs, kwargs]
     const payload = JSON.stringify(req, (k, v) => {
@@ -161,7 +179,6 @@ class PyBridge {
       }
       return v
     })
-
     const resp = await waitFor(resolve => this.com.writeRaw(payload, r, resolve), timeout || REQ_TIMEOUT, () => {
       throw new BridgeException(`Attempt to access '${stack.join('.')}' failed.`)
     })
