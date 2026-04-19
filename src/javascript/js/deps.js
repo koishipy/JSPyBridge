@@ -1,6 +1,8 @@
 const cp = require('child_process')
 const fs = require('fs')
+const path = require('path')
 const { join } = require('path')
+const { sourceMapsEnabled } = require('process')
 const { pathToFileURL } = require('url')
 
 const NODE_PM = process.env.NODE_PM || 'npm'
@@ -38,7 +40,7 @@ class PackageManager {
   }
 
   getInstalledVersion (name) {
-    return this.installed.dependencies[name]
+    return this.installed.dependencies?.[name]
   }
 
   setInstalledVersion (name, version) {
@@ -123,10 +125,18 @@ async function $require (name, version, relativeTo) {
     // The user didn't specify a version. So try whatever version we find installed. This can fail for non CJS modules.
     try { return require(name) } catch { }
   }
-
+  let path = []
+  if (name[0] == '@') {
+    const [_scope, _name, ..._path] = name.split('/')
+    name = `${_scope}/${_name}`
+    path = _path
+  } else {
+    const [_name, ..._path] = name.split('/') // for requiring files using from packages
+    name = _name
+  }
   // A version was specified, or the package wasn't found already installed.
   const newpath = pm.install(name, version)
-  const mod = await import(newpath)
+  const mod = await import([newpath, ...path].join('/'))
   return mod.default ?? mod
 }
 

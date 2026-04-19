@@ -1,9 +1,11 @@
 node_modules
-__*__
+__*
 .DS*
-src/**/package.json
 package-lock.json
 *.egg-info
+dist
+build
+
 .idea/
 .pdm-python
-dist/
+

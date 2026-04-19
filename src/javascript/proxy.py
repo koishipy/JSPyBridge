@@ -1,4 +1,4 @@
-import json
+import time, threading, json, sys, os, traceback
 from typing import TYPE_CHECKING, Any, Optional, Sequence, List
 
 from . import config
@@ -186,22 +186,22 @@ class Executor:
         return self.bridge.m[ffid]
 
 
-INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname", "_es6", "_resolved", "_Keys"]
+INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname","_Is_class", "_Resolved", "_Keys"]
 
 
 # "Proxy" classes get individually instanciated for every thread and JS object
 # that exists. It interacts with an Executor to communicate.
 class Proxy:
     def __init__(self, exe: Executor, ffid: int, prop_ffid: Optional[int] = None, prop_name: str = "",
-                 es6: bool = False):
+                 is_class: bool = False):
         self.ffid = ffid
         self._exe = exe
         self._ix = 0
         #
         self._pffid = prop_ffid if prop_ffid is not None else ffid
         self._pname = prop_name
-        self._es6 = es6
-        self._resolved = {}
+        self._Is_class = is_class
+        self._Resolved = {}
         self._Keys: Optional[List[str]] = None
 
     def _call(self, method: str, methodType: str, val: Any) -> Any:
@@ -211,7 +211,7 @@ class Proxy:
         if methodType == "fn":
             return Proxy(self._exe, val, self.ffid, method)
         if methodType == "class":
-            return Proxy(self._exe, val, es6=True)
+            return Proxy(self._exe, val, is_class=True)
         if methodType == "obj":
             return Proxy(self._exe, val)
         if methodType == "inst":
@@ -226,7 +226,7 @@ class Proxy:
     def __call__(self, *args, timeout: Optional[float] = 10, forceRefs: bool = False) -> Any:
         mT, v = (
             self._exe.initProp(self._pffid, self._pname, args)
-            if self._es6
+            if self._Is_class
             else self._exe.callProp(
                 self._pffid, self._pname, args, timeout=timeout, forceRefs=forceRefs
             )
@@ -238,7 +238,7 @@ class Proxy:
     def __getattr__(self, attr: str) -> Any:
         # Special handling for new keyword for ES5 classes
         if attr == "new":
-            return self._call(self._pname if self._pffid == self.ffid else "", "class", self._pffid)
+            return Proxy(self._exe, self.ffid, self._pffid, self._pname, True)
         methodType, val = self._exe.getProp(self._pffid, attr)
         return self._call(attr, methodType, val)
 

@@ -1,3 +1,32 @@
+## 1.2.6
+* [Add dependencies field to package.json](https://github.com/extremeheat/JSPyBridge/commit/9c5cbefff12aea3dd024745ff761a5a2b2d9beb0) (thanks @extremeheat)
+
+## 1.2.5
+* [Fix timeout handling (#168)](https://github.com/extremeheat/JSPyBridge/commit/3ae9721f2ea16865434233401582b8cb715679bc) (thanks @extremeheat)
+* [fix: allow importing packages in ESM context (#158)](https://github.com/extremeheat/JSPyBridge/commit/9c2ff49282a40ad915a390f10f64901bc1814ee1) (thanks @Killusions)
+
+## 1.2.4
+* [javascript: Fix npm dependency installing bug (#164)](https://github.com/extremeheat/JSPyBridge/commit/747e1fd221cef6db0ca28480db5e745dbcf57cd6) (thanks @extremeheat)
+
+## 1.2.3
+* [javascript: fix require()'ing files inside a package (#147)](https://github.com/extremeheat/JSPyBridge/commit/a93fce586c4ad3d37d3a58710fd934523df94038) (thanks @livinNector)
+* [doc: fix some typos, optimize wording (#160)](https://github.com/extremeheat/JSPyBridge/commit/12455b31875d292626d6056d4aa365b7449783fb) (thanks @mk-pmb)
+* [readme: pip3 -> pip](https://github.com/extremeheat/JSPyBridge/commit/13e6d9ff5bea9f494b5d9d35c6afaac27a678daa) (thanks @extremeheat)
+
+## 1.2.2
+* [Handle non-Error objects thrown in JS (#154)](https://github.com/extremeheat/JSPyBridge/commit/5b3aecd787fb2bb531079b61f8492a92f633eaff) (thanks @extremeheat)
+* [docs: fix typo (#146)](https://github.com/extremeheat/JSPyBridge/commit/bd17b0de48baa761284dfef469641ba46d5357bc) (thanks @simoneb)
+* [pythonia: update typescript types (#142)](https://github.com/extremeheat/JSPyBridge/commit/d17217070ea0ff5baa0c96a06549006dce82df20) (thanks @Pickleboyonline)
+
+## 1.2.1
+* [Fix ES5 class handling, allow disabling timeouts (#137)](https://github.com/extremeheat/JSPyBridge/commit/a2d7369d861b6be9472ce2b72b3a92e78a06cda4) (thanks @extremeheat)
+
+## 1.2.0
+* [pythonia: fix: more graceful python shutdown (#134)](https://github.com/extremeheat/JSPyBridge/commit/78e4c4a8cdb127a65eb65e75038f5563eb7e7b3d) (thanks @thearchitector)
+* [Update CI to node 18](https://github.com/extremeheat/JSPyBridge/commit/5828b00889761f57429aed4fb317d20497f9a703) (thanks @extremeheat)
+* [javascript: Allow manual re-initialization of NodeJS process (#131)](https://github.com/extremeheat/JSPyBridge/commit/adab7cff4bfc88d94d5781db503270e9e285b215) (thanks @Tales-Carvalho)
+* [javascript: replace deprecated thread setDaemon setter with property assignment (#124)](https://github.com/extremeheat/JSPyBridge/commit/060f21e13cc55c8efb3e79e1714f96b63eb45fcd) (thanks @Ableytner)
+
 ## 1.1.3
 * [javascript: fix handler leak (#121)](https://github.com/extremeheat/JSPyBridge/commit/5a2bd1eabf86987ab5641dd4913d3fc2e0ba4ad0) (thanks @extremeheat)
 

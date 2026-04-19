@@ -1,13 +1,12 @@
 /**
  * The Python Interface for JavaScript
  */
-
 const util = require('util')
-if (typeof performance === 'undefined') var { performance } = require('perf_hooks')
-const log = () => { }
 const errors = require('./errors')
-// use REQ_TIMEOUT env var value if parseable as integer, otherwise default to 100000 (ms)
-const REQ_TIMEOUT = parseInt(process.env.REQ_TIMEOUT) || 100000
+if (typeof performance === 'undefined') var { performance } = require('perf_hooks')
+
+const log = () => { }
+const REQ_TIMEOUT = isNaN(process.env.REQ_TIMEOUT) ? 100000 : parseInt(process.env.REQ_TIMEOUT)
 
 class BridgeException extends Error {
   constructor (...a) {
@@ -38,7 +37,7 @@ class PythonException extends Error {
 
 async function waitFor (cb, withTimeout, onTimeout) {
   let t
-  if (withTimeout === Infinity) return new Promise(resolve => cb(resolve))
+  if ((withTimeout === Infinity) || (withTimeout === 0)) return new Promise(resolve => cb(resolve))
   const ret = await Promise.race([
     new Promise(resolve => cb(resolve)),
     new Promise(resolve => { t = setTimeout(() => resolve('timeout'), withTimeout) })

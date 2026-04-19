@@ -7,7 +7,7 @@
 
 Interoperate Node.js and Python. You can run Python from Node.js, *or* run Node.js from Python. **Work in progress.** 
 
-Requires Node.js 14 and Python 3.8 or newer.
+Requires Node.js 18 and Python 3.8 or newer.
 
 ## Key Features
 
@@ -18,7 +18,7 @@ Requires Node.js 14 and Python 3.8 or newer.
 * Object inspection allows you to easily `console.log` or `print()` any foreign objects
 * (Bridge to call Python from JS) Python class extension and inheritance. [See pytorch and tensorflow examples](https://github.com/extremeheat/JSPyBridge/blob/master/examples/javascript/pytorch-train.js).
 * (Bridge to call JS from Python) Native decorator-based event emitter support
-* (Bridge to call JS from Python) **First-class Jupyter Notebook/Google Colab support.** See some Google Colab uses below.
+* (Bridge to call JS from Python) First-class Jupyter Notebook/Google Colab support. See some Google Colab uses below.
 
 
 ## Basic usage example
@@ -29,7 +29,7 @@ See some examples [here](https://github.com/extremeheat/JSPyBridge/tree/master/e
 
 
 ```sh
-pip3 install javascript
+pip install javascript
 ```
 
 
@@ -300,7 +300,7 @@ for await (const file of files) {
 ```
 </details>
 
-## Details
+## Extra details
 
 * When doing a function call, any returned foreign objects will be sent to you as a reference. For example, if you're in JavaScript and do a function call to Python that returns an array, you won't get a JS array back, but you will get a reference to the Python array. You can still access the array normally with the [] notation, as long as you use await.
 
@@ -308,7 +308,7 @@ for await (const file of files) {
 
 * However, this does not apply with callbacks or non-native function input parameters. The bridge will try to serialize what it can, and will give you a foreign reference if it's unable to serialize something. So if you pass a JS object, you'll get a Python dict, but if the dict contains something like a class, you'll get a reference in its place.
 
-* If you would like the bridge to turn a foreign reference to something native, you can use `.valueOf()` to transfer an object via JSON serialization, or `.blobValueOf()` to write an object into the communication pipe directly.
+* (On the bridge to call JavaScript from Python) If you would like the bridge to turn a foreign reference to something native, you can use `.valueOf()` to transfer an object via JSON serialization, or `.blobValueOf()` to write an object into the communication pipe directly.
   - `.valueOf()` can be used on any JSON-serializable object, but may be very slow for big data.
   - `.blobValueOf()` can be used on any pipe-writeable object implementing the `length` property (e.g. `Buffer`). It can be massively faster by circumventing the JSON+UTF8 encode/decode layer, which is inept for large byte arrays.
 
@@ -318,8 +318,8 @@ for await (const file of files) {
 
 #### Limitations
 
-* The `ffid` keyword is reserved. You cannot use it in variable names, object keys or values as this is used to internlly track objects.
+* The `ffid` keyword is reserved. You cannot use it in variable names, object keys, or values, as this is used to internally track objects.
 
-* On the bridge to call JavaScript from Python, due to the limiatations of Python and cross-platform IPC, we currently communicate over standard error which means that specific output in JS standard error can interfere with the bridge (as of this writing, the prefices `{"r"` and `blob!` are reserved). A similar issue exists on Windows with Python. You are however very unlikely to have issues with this.
+* On the bridge to call JavaScript from Python, due to the limitations of Python and cross-platform IPC, we currently communicate over standard error which means that specific output in JS standard error can interfere with the bridge. (Currently, the prefixes `{"r"` and `blob!` are reserved.) A similar issue exists on Windows with Python. You are however very unlikely to have issues with this.
 
-* Function calls will timeout after 100000 ms and throw a `BridgeException` error. That default value can be overridden by defining the new value of `REQ_TIMEOUT` in an environment variable.
+* Function calls will timeout after 100000 ms (100 sec) and throw a `BridgeException` error. That default value can be overridden by defining an environment variable `REQ_TIMEOUT`. Setting it to 0 will disable timeout checks.
