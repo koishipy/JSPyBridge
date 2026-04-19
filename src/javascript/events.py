@@ -21,7 +21,6 @@ class TaskState:
 
 
 class EventExecutorThread(threading.Thread):
-
     def __init__(self):
         super().__init__()
         self.running = True
@@ -38,7 +37,7 @@ class EventExecutorThread(threading.Thread):
     def run(self):
         while self.running:
             request_id, cb_id, job, args = self.jobs.get()
-            ok = job(args)
+            _j = job(args)
             if self.jobs.empty():
                 self.doing = []
 
@@ -47,7 +46,6 @@ class EventExecutorThread(threading.Thread):
 # JS and Python happens through this event loop. Because of Python's "Global Interperter Lock"
 # only one thread can run Python at a time, so no race conditions to worry about.
 class EventLoop:
-
     def __init__(self):
         connection.start()
 
@@ -176,7 +174,7 @@ class EventLoop:
                 r = inbound["r"]
                 cbid = inbound["cb"] if "cb" in inbound else None
                 if "c" in inbound and inbound["c"] == "pyi":
-                    j = inbound
+                    _j = inbound
                     self.callbackExecutor.add_job(r, cbid, self.pyi.inbound, inbound)
                 if r in self.requests:
                     lock, timeout = self.requests[r]

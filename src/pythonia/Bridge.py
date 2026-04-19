@@ -1,5 +1,10 @@
-import inspect, importlib, importlib.util
-import json, types, traceback, os, sys
+import inspect
+import importlib
+import importlib.util
+import json
+import traceback
+import os
+import sys
 from proxy import Executor, Proxy
 from weakref import WeakValueDictionary
 
@@ -36,8 +41,7 @@ class Iterate:
         self.Next = next_iter
 
     def next_iter(self):
-        for entry in self.what:
-            yield entry
+        yield from self.what
         return
 
     def next_gen(self):
@@ -74,9 +78,7 @@ class Bridge:
         # disabled when a for loop is active; use `repr` to request logging instead.
         self.m[0]["sendInspect"] = lambda x: setattr(self, "send_inspect", x)
         self.send_inspect = True
-        self.q = lambda r, key, val, sig="": self.ipc.queue(
-            {"r": r, "key": key, "val": val, "sig": sig}
-        )
+        self.q = lambda r, key, val, sig="": self.ipc.queue({"r": r, "key": key, "val": val, "sig": sig})
         self.executor = Executor(self)
 
         setattr(os, "JSPyBridge", Proxy(self.executor, 0))
@@ -112,7 +114,7 @@ class Bridge:
             base = this.m[base_ffid]
             base_classes.append(base)
 
-        claz = type(base_classes[0])
+        # claz = type(base_classes[0])
         clas = type(
             name,
             tuple(base_classes),
@@ -143,12 +145,12 @@ class Bridge:
             elif hasattr(v, "__getitem__"):
                 try:
                     v = v[key]
-                except:
+                except KeyError:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
             else:
                 raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
-        l = len(v)
-        self.q(r, "num", l)
+        le = len(v)
+        self.q(r, "num", le)
 
     def init(self, r, ffid, key, args):
         v = self.m[ffid](*args)
@@ -171,7 +173,7 @@ class Bridge:
                 elif hasattr(v, "__getitem__"):
                     try:
                         v = v[key]
-                    except:
+                    except KeyError:
                         raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
                 else:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
@@ -184,7 +186,7 @@ class Bridge:
                 elif hasattr(v, "__getitem__"):
                     try:
                         v = v[key]
-                    except:
+                    except KeyError:
                         raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
                 else:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
@@ -238,7 +240,7 @@ class Bridge:
             else:
                 try:
                     v = v[key]
-                except:
+                except KeyError:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
         if type(v) in (dict, tuple, list, set):
             v[on] = val
@@ -289,6 +291,7 @@ class Bridge:
 
     def pcall(self, r, ffid, key, args, set_attr=False):
         created = {}
+
         # Convert special JSON objects to Python methods
         def process(json_input, lookup_key):
             if isinstance(json_input, dict):
@@ -297,11 +300,7 @@ class Bridge:
                         lookup = v[lookup_key]
                         if lookup == "":
                             self.cur_ffid += 1
-                            proxy = (
-                                self.m[v["extend"]]
-                                if "extend" in v
-                                else Proxy(self.executor, self.cur_ffid)
-                            )
+                            proxy = self.m[v["extend"]] if "extend" in v else Proxy(self.executor, self.cur_ffid)
                             self.weakmap[self.cur_ffid] = proxy
                             json_input[k] = proxy
                             created[v["r"]] = self.cur_ffid
@@ -315,11 +314,7 @@ class Bridge:
                         lookup = v[lookup_key]
                         if lookup == "":
                             self.cur_ffid += 1
-                            proxy = (
-                                self.m[v["extend"]]
-                                if "extend" in v
-                                else Proxy(self.executor, self.cur_ffid)
-                            )
+                            proxy = self.m[v["extend"]] if "extend" in v else Proxy(self.executor, self.cur_ffid)
                             self.weakmap[self.cur_ffid] = proxy
                             json_input[k] = proxy
                             created[v["r"]] = self.cur_ffid

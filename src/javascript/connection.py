@@ -5,7 +5,8 @@ import subprocess
 import sys
 import threading
 import time
-from typing import IO, Sequence, Any, Optional
+from typing import IO, Any
+from collections.abc import Sequence
 
 from loguru import logger
 
@@ -15,7 +16,9 @@ from .config import debug
 # Special handling for IPython jupyter notebooks
 stdout = sys.stdout
 notebook = False
-NODE_BIN = os.environ.get('NODE_BIN') or (getattr(os.environ, "NODE_BIN") if hasattr(os.environ, "NODE_BIN") else "node")
+NODE_BIN = os.environ.get("NODE_BIN") or (
+    getattr(os.environ, "NODE_BIN") if hasattr(os.environ, "NODE_BIN") else "node"
+)
 
 
 def is_notebook():
@@ -34,7 +37,7 @@ def is_notebook():
 
 
 # Modified stdout
-modified_stdout = (sys.stdout != sys.__stdout__) or (getattr(sys, 'ps1', sys.flags.interactive) == '>>> ')
+modified_stdout = (sys.stdout != sys.__stdout__) or (getattr(sys, "ps1", sys.flags.interactive) == ">>> ")
 
 if is_notebook() or modified_stdout:
     notebook = True
@@ -50,7 +53,7 @@ def supports_color():
     supported_platform = plat != "Pocket PC" and (plat == "win32" or "ANSICON" in os.environ)
     # isatty is not always implemented, #6223.
     is_a_tty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
-    if 'idlelib.run' in sys.modules:
+    if "idlelib.run" in sys.modules:
         return False
     if is_notebook():
         return True
@@ -67,22 +70,21 @@ else:
 # ^^ Looks like custom FDs don't work on Windows, so let's keep using STDIO.
 
 dn = os.path.dirname(__file__)
-proc: Optional[subprocess.Popen] = None
-com_thread: Optional[threading.Thread] = None
-stdout_thread: Optional[threading.Thread] = None
+proc: subprocess.Popen | None = None
+com_thread: threading.Thread | None = None
+stdout_thread: threading.Thread | None = None
 
 
 def readComItem(stream: IO[bytes]):
-    
+
     line = stream.readline()
     if not line:
         return
-    
+
     if line.startswith(b"blob!"):
-        
         _, d, blob = line.split(b"!", maxsplit=2)
         d = json.loads(d.decode("utf-8"))
-        
+
         # blobs may contain any value, including b"\n", so we track length and fetch possible remaining data
         # note that either initial_len or fetch_len will include space for a trailing \n
         target_len = d.pop("len")
@@ -91,15 +93,15 @@ def readComItem(stream: IO[bytes]):
         debug(f"[js -> py] blob r:{d['r']}: target_len {target_len}, initial_len {initial_len}, fetch_len {fetch_len}")
         if fetch_len > 0:
             blob += stream.read(fetch_len)
-        
+
         # must end with \n (added by bridge) to separate the next IPC call, which will be received via .readline()
         assert blob.endswith(b"\n")
         d["blob"] = blob[:-1]
         assert len(d["blob"]) == target_len
         debug(f"[js -> py] blob r:{d['r']}: {d['blob'][:20]} ... (truncated)")
-        
+
         return d
-    
+
     line = line.decode("utf-8")
     if not line.startswith('{"r"'):
         print("[JSE]", line)
@@ -108,7 +110,7 @@ def readComItem(stream: IO[bytes]):
         d = json.loads(line)
         debug(f"[js -> py] {int(time.time() * 1000)} {line}")
         return d
-    except ValueError as e:
+    except ValueError:
         print("[JSE]", line)
 
 
@@ -119,7 +121,7 @@ sendQ = []
 # but it could be a websocket (slower) or other generic pipe.
 def writeAll(objs: Sequence[Any]):
     for obj in objs:
-        if type(obj) == str:
+        if isinstance(obj, str):
             j = obj + "\n"
         else:
             j = json.dumps(obj) + "\n"
@@ -153,20 +155,17 @@ def readAll():
 def com_io():
     global proc, stdout_thread
     try:
-        if os.name == 'nt' and 'idlelib.run' in sys.modules:
+        if os.name == "nt" and "idlelib.run" in sys.modules:
             proc = subprocess.Popen(
                 [NODE_BIN, dn + "/js/bridge.js"],
                 stdin=subprocess.PIPE,
                 stdout=stdout,
                 stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
         else:
             proc = subprocess.Popen(
-                [NODE_BIN, dn + "/js/bridge.js"],
-                stdin=subprocess.PIPE,
-                stdout=stdout,
-                stderr=subprocess.PIPE
+                [NODE_BIN, dn + "/js/bridge.js"], stdin=subprocess.PIPE, stdout=stdout, stderr=subprocess.PIPE
             )
 
     except Exception as e:
@@ -184,7 +183,7 @@ def com_io():
         proc.stdin.write(send)
     sendQ.clear()
     proc.stdin.flush()
-    
+
     # FIXME untested
     if notebook:
         stdout_thread = threading.Thread(target=stdout_read, args=(), daemon=True)
@@ -224,9 +223,7 @@ def stop():
 
     class Null:
         def __getattr__(self, *args, **kwargs):
-            raise Exception(
-                "The JavaScript process has crashed. Please restart the runtime to access JS APIs."
-            )
+            raise Exception("The JavaScript process has crashed. Please restart the runtime to access JS APIs.")
 
     config.global_jsi = Null()
     # Currently this breaks GC

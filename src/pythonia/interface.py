@@ -1,5 +1,8 @@
 from Bridge import Bridge
-import sys, os, socket, json
+import sys
+import os
+import socket
+import json
 
 apiin = apiout = None
 
@@ -8,7 +11,7 @@ class Ipc:
     def queue(self, what):
         global apiout
         try:
-            if type(what) == str:
+            if isinstance(what, str):
                 apiout.write(what + "\n")
             else:
                 apiout.write(json.dumps(what) + "\n")
@@ -24,6 +27,7 @@ class Ipc:
 
 ipc = Ipc()
 bridge = Bridge(ipc)
+
 
 # The communication stuffs
 # This is the communication thread which allows us to send and

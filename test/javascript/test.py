@@ -1,4 +1,3 @@
-import os
 import time
 from javascript import require, console, On, Once, off, once, eval_js
 
@@ -55,7 +54,7 @@ try:
     demo.error()
     print("Failed to error")
     exit(1)
-except Exception as e:
+except Exception:
     print("OK, captured error")
 
 print("Array", demo.arr.valueOf())
@@ -69,7 +68,7 @@ pythonArray = []
 pythonObject = {"var": 3}
 
 # fmt: off
-print(eval_js('''
+print(eval_js("""
     for (let i = 0; i < 10; i++) {
         await pythonArray.append(i);
         pythonObject[i] = i;
@@ -78,7 +77,7 @@ print(eval_js('''
     const fn = await demo.moreComplex()
     console.log('wrapped fn', await fn()); // Should be 3
     return 2
-'''))
+"""))
 # fmt: on
 
 print("My var", pythonObject)

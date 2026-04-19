@@ -12,8 +12,8 @@
 # This bot also replies to some specific chat messages so you can ask him
 # a few informations while you are in game.
 # ===========================================================================
-import sys, re
-from javascript import require, console, On, Once
+import sys
+from javascript import require, console, On
 
 mineflayer = require("mineflayer", "latest")
 Vec3 = require("vec3").Vec3
@@ -27,12 +27,7 @@ host = sys.argv[1]
 port = sys.argv[2]
 username = sys.argv[3] if len(sys.argv) > 3 else "boat"
 
-bot = mineflayer.createBot({
-    "host": host,
-    "port": port,
-    "username": username,
-    "port": port
-})
+bot = mineflayer.createBot({"host": host, "port": port, "username": username})
 
 Item = require("prismarine-item")(bot.version)
 
@@ -46,7 +41,7 @@ def handle(this, username, message, *args):
         # Extract x, y and z
         # e.g. "can see 327 60 -120" or "can see 327, -23, -120"
         try:
-            x, y, z = map(lambda v: int(v), message.split("see")[1].replace(",", " ").split())
+            x, y, z = (int(p) for p in message.split("see")[1].replace(",", " ").split())
         except Exception:
             bot.chat("Bad syntax")
     elif message.startswith("pos"):
@@ -168,7 +163,7 @@ def kicked(this, reason, *a):
 
 @On(bot, "time")
 def time(this):
-    bot.chat(f"Current time: " + str(bot.time.timeOfDay))
+    bot.chat("Current time: " + str(bot.time.timeOfDay))
 
 
 @On(bot, "rain")
@@ -215,8 +210,7 @@ def playerCollect(this, collector, collected):
     if collector.type == "player" and collected.type == "object":
         raw_item = collected.metadata[10]
         item = Item.fromNotch(raw_item)
-        header = ("I'm so jealous. " + collector.username) if (
-            collector.username != bot.username) else "I "
+        header = ("I'm so jealous. " + collector.username) if (collector.username != bot.username) else "I "
         bot.chat(f"{header} collected {item.count} {item.displayName}")
 
 

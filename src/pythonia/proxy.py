@@ -1,5 +1,4 @@
-import time, threading, json
-import json_patch
+import json
 
 debug = lambda *a: a
 # debug = print
@@ -20,24 +19,23 @@ class Executor:
     def ipc(self, action, ffid, attr, args=None):
         self.i += 1
         r = self.i  # unique request ts, acts as ID for response
-        l = None  # the lock
+        _lock = None  # the lock
         if action == "get":  # return obj[prop]
-            l = self.queue(r, {"r": r, "action": "get", "ffid": ffid, "key": attr})
+            _lock = self.queue(r, {"r": r, "action": "get", "ffid": ffid, "key": attr})
         elif action == "init":  # return new obj[prop]
-            l = self.queue(r, {"r": r, "action": "init", "ffid": ffid, "key": attr, "args": args})
+            _lock = self.queue(r, {"r": r, "action": "init", "ffid": ffid, "key": attr, "args": args})
         elif action == "inspect":  # return require('util').inspect(obj[prop])
-            l = self.queue(r, {"r": r, "action": "inspect", "ffid": ffid, "key": attr})
+            _lock = self.queue(r, {"r": r, "action": "inspect", "ffid": ffid, "key": attr})
         elif action == "serialize":  # return JSON.stringify(obj[prop])
-            l = self.queue(r, {"r": r, "action": "serialize", "ffid": ffid})
+            _lock = self.queue(r, {"r": r, "action": "serialize", "ffid": ffid})
         elif action == "set":
-            l = self.queue(r, {"r": r, "action": "set", "ffid": ffid, "key": attr, "args": args})
+            _lock = self.queue(r, {"r": r, "action": "set", "ffid": ffid, "key": attr, "args": args})
         elif action == "keys":
-            l = self.queue(r, {"r": r, "action": "keys", "ffid": ffid})
+            _lock = self.queue(r, {"r": r, "action": "keys", "ffid": ffid})
         if action == "raw":
             # (not really a FFID, but request ID)
             r = ffid
-            l = self.loop.queue_request_raw(ffid, args)
-
+            _lock = self.loop.queue_request_raw(ffid, args)
         # Listen for a response
         while True:
             j = self.loop.read()
@@ -110,7 +108,7 @@ class Executor:
     def free(self, ffid):
         self.i += 1
         try:
-            l = self.queue(self.i, {"r": self.i, "action": "free", "args": [ffid]})
+            _lock = self.queue(self.i, {"r": self.i, "action": "free", "args": [ffid]})
         except ValueError:  # Event loop is dead, no need for GC
             pass
 
@@ -125,22 +123,21 @@ class Executor:
 
 INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname", "_Is_class", "~class", "_Keys"]
 
+
 # "Proxy" classes get individually instanciated for every thread and JS object
 # that exists. It interacts with an Executor to communicate.
-class Proxy(object):
+class Proxy:
     def __init__(self, exe, ffid, prop_ffid=None, prop_name="", is_class=False):
         self.ffid = ffid
         self._exe = exe
         self._ix = 0
         #
-        self._pffid = prop_ffid if (prop_ffid != None) else ffid
+        self._pffid = prop_ffid if (prop_ffid is not None) else ffid
         self._pname = prop_name
         self._Is_class = is_class
         self._Keys = None
 
     def _call(self, method, methodType, val):
-        this = self
-
         debug("MT", method, methodType, val)
         if methodType == "fn":
             return Proxy(self._exe, val, self.ffid, method)
@@ -161,9 +158,7 @@ class Proxy(object):
         mT, v = (
             self._exe.initProp(self._pffid, self._pname, args)
             if self._Is_class
-            else self._exe.callProp(
-                self._pffid, self._pname, args, timeout=timeout
-            )
+            else self._exe.callProp(self._pffid, self._pname, args, timeout=timeout)
         )
         if mT == "fn":
             return Proxy(self._exe, v)
@@ -182,7 +177,7 @@ class Proxy(object):
 
     def __iter__(self):
         self._ix = 0
-        if self.length == None:
+        if self.length is None:
             self._Keys = self._exe.keys(self.ffid)
         return self
 

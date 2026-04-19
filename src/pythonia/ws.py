@@ -1,7 +1,8 @@
 # WebSocket Interface for Python access
 from Bridge import Bridge
 from queue import Queue
-import threading, json
+import threading
+import json
 import asyncio
 import websockets
 
@@ -19,7 +20,7 @@ class WsCom:
 
     # Submit a job to asyncio to send since we're in another thread
     def queue(self, what):
-        if type(what) == str:
+        if isinstance(what, str):
             w = what
         else:
             w = json.dumps(what)
@@ -56,9 +57,7 @@ def ws_io():
             listener_task = asyncio.ensure_future(ws.recv())
             producer_task = asyncio.ensure_future(sendQ.get())
 
-            done, pending = await asyncio.wait(
-                [listener_task, producer_task], return_when=asyncio.FIRST_COMPLETED
-            )
+            done, pending = await asyncio.wait([listener_task, producer_task], return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
 

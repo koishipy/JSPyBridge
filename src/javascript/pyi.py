@@ -6,7 +6,7 @@ import json
 import sys
 import traceback
 from importlib import util as importlib_util
-from typing import Any, Dict
+from typing import Any
 from weakref import WeakValueDictionary
 
 from .proxy import Proxy
@@ -48,8 +48,7 @@ class Iterate:
         self.Next = next_iter
 
     def next_iter(self):
-        for entry in self.what:
-            yield entry
+        yield from self.what
         return
 
     def next_gen(self):
@@ -60,7 +59,7 @@ fix_key = lambda key: key.replace("~~", "") if type(key) is str else key
 
 
 class PyInterface:
-    m: Dict[int, Any] = {0: {"python": python, "fileImport": fileImport, "Iterate": Iterate}}  # type: ignore
+    m: dict[int, Any] = {0: {"python": python, "fileImport": fileImport, "Iterate": Iterate}}  # type: ignore
     # Things added to this dict are auto GC'ed
     weakmap = WeakValueDictionary()
     cur_ffid = 10000
@@ -91,12 +90,12 @@ class PyInterface:
             elif hasattr(v, "__getitem__"):
                 try:
                     v = v[key]
-                except:
+                except KeyError:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
             else:
                 raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
-        l = len(v)
-        self.q(r, "num", l)
+        le = len(v)
+        self.q(r, "num", le)
 
     def init(self, r, ffid, key, args):
         v = self.m[ffid](*args)
@@ -119,7 +118,7 @@ class PyInterface:
                 elif hasattr(v, "__getitem__"):
                     try:
                         v = v[key]
-                    except:
+                    except KeyError:
                         raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
                 else:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
@@ -132,7 +131,7 @@ class PyInterface:
                 elif hasattr(v, "__getitem__"):
                     try:
                         v = v[key]
-                    except:
+                    except KeyError:
                         raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
                 else:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
@@ -186,7 +185,7 @@ class PyInterface:
             else:
                 try:
                     v = v[key]
-                except:
+                except KeyError:
                     raise LookupError(f"Property '{fix_key(key)}' does not exist on {repr(v)}")
         if type(v) in (dict, tuple, list, set):
             v[on] = val
@@ -214,6 +213,8 @@ class PyInterface:
         return ""
 
     def read(self):
+        from pythonia.interface import apiin
+
         data = apiin.readline()
         if not data:
             exit()

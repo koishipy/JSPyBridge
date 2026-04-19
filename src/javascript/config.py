@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .proxy import Executor, Proxy
 
 event_loop: Optional["EventLoop"] = None
-event_thread: Optional[Thread] = None
+event_thread: Thread | None = None
 executor: Optional["Executor"] = None
 # The "root" interface to JavaScript with FFID 0
 global_jsi: Optional["Proxy"] = None

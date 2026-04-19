@@ -1,5 +1,6 @@
-import time, threading, json, sys, os, traceback
-from typing import TYPE_CHECKING, Any, Optional, Sequence, List
+import json
+from typing import TYPE_CHECKING, Any
+from collections.abc import Sequence
 
 from . import config
 from .errors import JavaScriptError
@@ -59,8 +60,16 @@ class Executor:
 
     # forceRefs=True means that the non-primitives in the second parameter will not be recursively
     # parsed for references. It's specifcally for eval_js.
-    def pcall(self, ffid: int, action: str, attr: Any, args: Sequence[Any], *, timeout: Optional[float] = 1000,
-              forceRefs: bool = False):
+    def pcall(
+        self,
+        ffid: int,
+        action: str,
+        attr: Any,
+        args: Sequence[Any],
+        *,
+        timeout: float | None = 1000,
+        forceRefs: bool = False,
+    ):
         """
         This function does a two-part call to JavaScript. First, a preliminary request is made to JS
         with the function ID, attribute and arguments that Python would like to call. For each of the
@@ -99,12 +108,7 @@ class Executor:
             flocals = packet["args"][1]
             for k in _locals:
                 v = _locals[k]
-                if (
-                        (isinstance(v, (int, float)))
-                        or (v is None)
-                        or (v is True)
-                        or (v is False)
-                ):
+                if (isinstance(v, (int, float))) or (v is None) or (v is True) or (v is False):
                     flocals[k] = v
                 else:
                     flocals[k] = ser(v)
@@ -163,8 +167,9 @@ class Executor:
         self.pcall(ffid, "set", method, [val])
         return True
 
-    def callProp(self, ffid: int, method: str, args: Sequence[Any], *, timeout: Optional[float] = None,
-                 forceRefs: bool = False):
+    def callProp(
+        self, ffid: int, method: str, args: Sequence[Any], *, timeout: float | None = None, forceRefs: bool = False
+    ):
         resp = self.pcall(ffid, "call", method, args, timeout=timeout, forceRefs=forceRefs)
         return resp
 
@@ -186,14 +191,15 @@ class Executor:
         return self.bridge.m[ffid]
 
 
-INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname","_Is_class", "_Resolved", "_Keys"]
+INTERNAL_VARS = ["ffid", "_ix", "_exe", "_pffid", "_pname", "_Is_class", "_Resolved", "_Keys"]
 
 
 # "Proxy" classes get individually instanciated for every thread and JS object
 # that exists. It interacts with an Executor to communicate.
 class Proxy:
-    def __init__(self, exe: Executor, ffid: int, prop_ffid: Optional[int] = None, prop_name: str = "",
-                 is_class: bool = False):
+    def __init__(
+        self, exe: Executor, ffid: int, prop_ffid: int | None = None, prop_name: str = "", is_class: bool = False
+    ):
         self.ffid = ffid
         self._exe = exe
         self._ix = 0
@@ -202,11 +208,9 @@ class Proxy:
         self._pname = prop_name
         self._Is_class = is_class
         self._Resolved = {}
-        self._Keys: Optional[List[str]] = None
+        self._Keys: list[str] | None = None
 
     def _call(self, method: str, methodType: str, val: Any) -> Any:
-        this = self
-
         debug(f"MT {method} {methodType} {val!r}")
         if methodType == "fn":
             return Proxy(self._exe, val, self.ffid, method)
@@ -223,13 +227,11 @@ class Proxy:
         else:
             return val
 
-    def __call__(self, *args, timeout: Optional[float] = 10, forceRefs: bool = False) -> Any:
+    def __call__(self, *args, timeout: float | None = 10, forceRefs: bool = False) -> Any:
         mT, v = (
             self._exe.initProp(self._pffid, self._pname, args)
             if self._Is_class
-            else self._exe.callProp(
-                self._pffid, self._pname, args, timeout=timeout, forceRefs=forceRefs
-            )
+            else self._exe.callProp(self._pffid, self._pname, args, timeout=timeout, forceRefs=forceRefs)
         )
         if mT == "fn":
             return Proxy(self._exe, v)

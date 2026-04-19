@@ -131,7 +131,7 @@ def processPyStacktrace(stack):
             lin = tokens[0]
             Code = tokens[1] if len(tokens) > 1 else chalk.italic("<via standard input>")
             fname = lin.split('"')[1]
-            line = re.search(r"\, line (\d+)", lin).group(1)
+            line = re.search(r"\, line (\d+)", lin).group(1)  # type: ignore
             at = re.search(r"\, in (.*)", lin)
             if at:
                 at = at.group(1)
@@ -172,10 +172,10 @@ def processJsStacktrace(stack, allowInternal=False):
             base_path = re.search(r"at (.*):(\d+):(\d+)$", line)
             if abs_path or file_path or base_path:
                 path = abs_path or file_path or base_path
-                fpath, errorline, char = path.groups()
+                fpath, errorline, char = path.groups()  # type: ignore
                 if fpath.startswith("node:"):
                     continue
-                with open(fpath, "r") as f:
+                with open(fpath) as f:
                     flines = f.readlines()
                     error_line = flines[int(errorline) - 1].strip()
                 lines.append(line.strip())
@@ -190,14 +190,13 @@ def processJsStacktrace(stack, allowInternal=False):
 
 def getErrorMessage(failed_call, jsStackTrace, pyStacktrace):
     try:
-        jse, jsm, jss = processJsStacktrace(jsStackTrace) or processJsStacktrace(jsStackTrace, True)
+        jse, jsm, jss = processJsStacktrace(jsStackTrace) or processJsStacktrace(jsStackTrace, True)  # type: ignore
         pye, pys = processPyStacktrace(pyStacktrace)
 
         lines = print_error(failed_call, jse, jss, jsm, pye, pys)
         return "\n".join(lines)
     except Exception as e:
         print("Error in exception handler")
-        import traceback
 
         print(e)
         pys = "\n".join(pyStacktrace)
@@ -217,7 +216,7 @@ try:
 
     def newLogger(*a, **kw):
         ex_type, ex_inst, tb = sys.exc_info()
-        if ex_type is JavaScriptError:
+        if isinstance(ex_inst, JavaScriptError):
             pyStacktrace = traceback.format_tb(tb)
             # The Python part of the stack trace is already printed by IPython
             print(getErrorMessage(ex_inst.call, ex_inst.js, pyStacktrace))

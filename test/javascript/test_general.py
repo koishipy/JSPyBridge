@@ -1,14 +1,19 @@
 import time
 from pathlib import Path
-from javascript import require, console, On, Once, off, once, eval_js, globalThis
+from javascript import require, On, Once, off, once, eval_js, globalThis
 
-def assertEquals(cond, val): assert cond == val
+
+def assertEquals(cond, val):
+    assert cond == val
+
 
 def test_require():
     chalk = require("chalk")
     fs = require("fs")
+    print(fs)
     print("Hello", chalk.red("world!"))
     test = require("./test.js")
+    print(test)
 
 
 def test_classes():
@@ -17,11 +22,13 @@ def test_classes():
     demo = DemoClass("blue", {"a": 3}, lambda v: assertEquals(v, 3))
     # New psuedo operator
     demo2 = DemoClass.new("blue", {"a": 3}, lambda v: assertEquals(v, 3))
+    print(demo, demo2)
 
     assert demo.ok()(1, 2, 3) == 6
-    assert demo.toString() == '123!'
-    assert demo.ok().x == 'wow'
-    assert DemoClass.hello() == 'world'
+    assert demo.toString() == "123!"
+    assert demo.ok().x == "wow"
+    assert DemoClass.hello() == "world"
+
 
 def test_iter():
     DemoClass = require("./test.js").DemoClass
@@ -33,16 +40,19 @@ def test_iter():
         f = i
     assert f.a == 3
 
-    expect = ['x', 'y', 'z']
+    expect = ["x", "y", "z"]
     for key in demo.object():
         assert key == expect.pop(0)
 
+
 def some_method(text):
     print("Callback called with", text)
-    assert text == 'It works !'
+    assert text == "It works !"
+
 
 def test_callback():
     demo.callback(some_method)
+
 
 def test_events():
     @On(demo, "increment")
@@ -57,6 +67,7 @@ def test_events():
 
     demo.increment()
 
+
 def test_arrays():
     demo.arr[1] = 5
     demo.obj[1] = 5
@@ -69,8 +80,9 @@ def test_errors():
         demo.error()
         print("Failed to error")
         exit(1)
-    except Exception as e:
+    except Exception:
         print("OK, captured error")
+
 
 def test_valueOf():
     a = demo.arr.valueOf()
@@ -82,28 +94,28 @@ def test_valueOf():
 
 
 def test_blobValueOf_generalValue():
-    
+
     # use this file itself as test data for simplicity
     fs = require("fs")
     FILE = Path(__file__).resolve()
     js_buffer = fs.readFileSync(str(FILE), {"encoding": None})
-    
+
     t_start = time.time()
     blob_value = js_buffer.blobValueOf()
     t_blob = time.time() - t_start
     assert isinstance(blob_value, bytes)
     assert b"\n" in blob_value
-    
+
     t_start = time.time()
     json_value = js_buffer.valueOf()
     t_json = time.time() - t_start
     assert json_value["type"] == "Buffer"
     assert isinstance(json_value["data"], list)
-    
+
     # confirm both transfer strategies return the same data, and transferred data matches with natively reproduced data
     native_value = FILE.read_bytes()
     assert blob_value == bytes(json_value["data"]) == native_value
-    
+
     # don't actually assert to avoid time dependent test case
     # note, the performance difference is much more pronounced for bigger values (see examples/pdfjs.py)
     print(f"blobValueOf() faster? {t_blob < t_json} (t_blob: {t_blob}, t_json {t_json})")
@@ -116,7 +128,8 @@ def test_blobValueOf_specificValues():
         "\nValue with single enclosing newlines\n",
         "\n\nValue with double enclosing newlines\n\n",
         # test an empty string and various amounts of newlines only
-        "", *["\n"*c for c in (1, 2, 3, 10)]
+        "",
+        *["\n" * c for c in (1, 2, 3, 10)],
     ]
     for val in test_values:
         print(f"blobValueOf() {val!r}")
@@ -132,17 +145,19 @@ def test_once():
     demo.wait()
     once(demo, "done")
 
+
 def test_assignment():
     demo.x = 3
+
 
 def test_eval():
     DemoClass = require("./test.js").DemoClass
     demo = DemoClass("blue", {"a": 3}, lambda v: print("Should be 3", v))
-    pythonArray = []
+    print(demo)
     pythonObject = {"var": 3}
 
     # fmt: off
-    print(eval_js('''
+    print(eval_js("""
         for (let i = 0; i < 10; i++) {
             await pythonArray.append(i);
             pythonObject[i] = i;
@@ -151,17 +166,20 @@ def test_eval():
         const fn = await demo.moreComplex()
         console.log('wrapped fn', await fn()); // Should be 3
         return 2
-    '''))
+    """))
     # fmt: on
 
     print("My var", pythonObject)
 
+
 def test_bigint():
-    bigInt = eval_js('100000n')
+    bigInt = eval_js("100000n")
     print(bigInt)
+
 
 def test_nullFromJsReturnsNone():
     assert demo.returnNull() is None
+
 
 test_require()
 test_classes()
